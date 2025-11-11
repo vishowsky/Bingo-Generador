@@ -5,10 +5,11 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
 from reportlab.lib.colors import black
 from datetime import datetime
-import fitz  # PyMuPDF
+import fitz
 import random
 import sys
 import threading
+import os
 
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
@@ -128,23 +129,34 @@ def generate_pdf(titulo, num_hojas, copias_por_hoja, filas, cols, size_name, ini
     fecha = datetime.now().strftime("%Y%m%d")
     filename = f"{titulo.replace(' ', '_')}-{fecha}.pdf"
     pdf = canvas.Canvas(filename, pagesize=(ancho_pagina, alto_pagina))
+
+    total_cartones = num_hojas * copias_por_hoja
     sn_count = inicio_sn
-    for _ in range(num_hojas):
+
+    for i in range(num_hojas):
         carton_base = generar_carton_bingo()
-        for _ in range(copias_por_hoja):
+        for copia in range(copias_por_hoja):
+            sn_str = f"{sn_count}"
             pdf.setFont("Times-BoldItalic", 38 if filas <= 4 else 28)
-            y_titulo = alto_pagina - margen_hoja_alto/2
+            y_titulo = alto_pagina - margen_hoja_alto / 2
             pdf.drawCentredString(ancho_pagina / 2, y_titulo, titulo)
             for fila in range(filas):
                 for col in range(cols):
                     x = offset_x + col * (ancho_carton + separacion)
                     y = alto_pagina - offset_y - fila * (alto_carton + separacion)
-                    dibujar_carton(pdf, x, y, ancho_carton, carton_base)
+                    dibujar_carton(
+                        pdf,
+                        x,
+                        y,
+                        ancho_carton,
+                        carton_base,
+                    )
             pdf.setFont("Helvetica", 14)
-            sn_str = f"{sn_count:0{len(str(num_hojas))}d}"
-            pdf.drawRightString(ancho_pagina - 7 * mm, 6 * mm, f"SN {sn_str}")
+            pdf.drawRightString(215.9 * mm - 7 * mm, 6 * mm, f"SN {sn_str}")
             pdf.showPage()
+            porcentaje = ((i * copias_por_hoja) + (copia + 1)) / total_cartones
         sn_count += 1
+
     pdf.save()
     return filename
 
@@ -163,7 +175,6 @@ class AboutWindow(ctk.CTkToplevel):
             "Licencia: MIT\n"
             "Desarrollado por Vicente Carreño\n"
             "GitHub: https://github.com/Vishowsky\n"
-            
         )
         ctk.CTkLabel(self, text=info, justify="left", font=("Helvetica", 12)).pack(pady=20)
         ctk.CTkButton(self, text="Cerrar", command=self.destroy).pack(pady=10)
@@ -205,7 +216,6 @@ class BingoModernApp(ctk.CTk):
         ctk.CTkButton(frame, text="Previsualizar", command=self.preview).pack(pady=15)
         ctk.CTkButton(frame, text="Generar PDF", command=self.generar_pdf).pack(pady=7)
 
-        # Panel de previsualización
         self.preview_frame = ctk.CTkFrame(self)
         self.preview_frame.pack(padx=20, pady=20, expand=True)
         self.preview_label = ctk.CTkLabel(self.preview_frame, text="", font=("Helvetica", 16, "bold"))
@@ -213,7 +223,6 @@ class BingoModernApp(ctk.CTk):
         self.preview_panel = ctk.CTkLabel(self.preview_frame, text="")
         self.preview_panel.pack(pady=10)
 
-        # Botón Acerca de
         self.about_btn = ctk.CTkButton(self, text="Acerca de", command=self.show_about)
         self.about_btn.place(relx=0.98, rely=0.98, anchor="se")
 
@@ -236,11 +245,11 @@ class BingoModernApp(ctk.CTk):
             ctk.CTkMessagebox(title="Error", message=msg, icon="cancel")
             return
         titulo = self.titulo_entry.get()
-        fil, col = (4,3) if self.cuadricula_var.get()=="4x3" else (3,3)
+        fil, col = (4,3) if self.cuadricula_var.get() == "4x3" else (3,3)
         size_name = self.size_var.get()
         sn = int(self.sn_entry.get())
         img = generar_pdf_preview(titulo, fil, col, size_name, sn)
-        imgtk = CTkImage(light_image=img, size=(430,650))
+        imgtk = CTkImage(light_image=img, size=(430, 650))
         self.preview_panel.configure(image=imgtk)
         self.preview_panel.image = imgtk
         self.preview_label.configure(text="Números de ejemplo")
@@ -254,68 +263,418 @@ class BingoModernApp(ctk.CTk):
         num_hojas = int(self.nhojas_entry.get())
         copias_por_hoja = int(self.copias_entry.get())
         inicio_sn = int(self.sn_entry.get())
-        filas, cols = (4,3) if self.cuadricula_var.get()=="4x3" else (3,3)
+        filas, cols = (4, 3) if self.cuadricula_var.get() == "4x3" else (3, 3)
         size_name = self.size_var.get()
+
         total_cartones = num_hojas * copias_por_hoja
+        fecha = datetime.now().strftime("%Y%m%d")
+        filename = f"{titulo.replace(' ', '_')}-{fecha}.pdf"
+        stop_event = threading.Event()
 
         def run_generation():
-            # Generar PDF
-            fecha = datetime.now().strftime("%Y%m%d")
-            filename = f"{titulo.replace(' ', '_')}-{fecha}.pdf"
-            pdf = canvas.Canvas(filename, pagesize=(215.9 * mm, 330.2 * mm if size_name == "Oficio" else 279.4 * mm))
-            sn_count = inicio_sn
-            for i in range(num_hojas):
-                carton_base = generar_carton_bingo()
-                for j in range(copias_por_hoja):
-                    pdf.setFont("Times-BoldItalic", 38 if filas <= 4 else 28)
-                    y_titulo = 330.2 * mm - 20 * mm / 2 if size_name == "Oficio" else 279.4 * mm - 20 * mm / 2
-                    pdf.drawCentredString(215.9 * mm / 2, y_titulo, titulo)
-                    for fila in range(filas):
-                        for col in range(cols):
-                            x = 13 * mm + col * (min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas) + 12)
-                            y = (330.2 * mm if size_name == "Oficio" else 279.4 * mm) - 20 * mm - fila * (min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas) + 12)
-                            dibujar_carton(pdf, x, y, min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas), carton_base)
-                    pdf.setFont("Helvetica", 14)
-                    sn_str = f"{sn_count:0{len(str(num_hojas))}d}"
-                    pdf.drawRightString(215.9 * mm - 7 * mm, 6 * mm, f"SN {sn_str}")
-                    pdf.showPage()
-                    # Actualizar barra de progreso
-                    porcentaje = (i * copias_por_hoja + j + 1) / total_cartones
-                    progress_bar.set(porcentaje)
-                    progress_label.configure(text=f"{int(porcentaje * 100)}%")
-                    loading.update_idletasks()
-            pdf.save()
-            loading.destroy()
+            try:
+                pdf = canvas.Canvas(filename, pagesize=(215.9 * mm, 330.2 * mm if size_name == "Oficio" else 279.4 * mm))
+                sn_count = inicio_sn
+                for i in range(num_hojas):
+                    if stop_event.is_set():
+                        break
+                    carton_base = generar_carton_bingo()
+                    for copia in range(copias_por_hoja):
+                        if stop_event.is_set():
+                            break
+                        sn_str = f"{sn_count}"
+                        pdf.setFont("Times-BoldItalic", 38 if filas <= 4 else 28)
+                        y_titulo = 330.2 * mm - 20 * mm / 2 if size_name == "Oficio" else 279.4 * mm - 20 * mm / 2
+                        pdf.drawCentredString(215.9 * mm / 2, y_titulo, titulo)
+                        for fila in range(filas):
+                            for col in range(cols):
+                                x = 13 * mm + col * (min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas) + 12)
+                                y = (330.2 * mm if size_name == "Oficio" else 279.4 * mm) - 20 * mm - fila * (min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas) + 12)
+                                dibujar_carton(pdf, x, y, min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas), carton_base)
+                        pdf.setFont("Helvetica", 14)
+                        pdf.drawRightString(215.9 * mm - 7 * mm, 6 * mm, f"SN {sn_str}")
+                        pdf.showPage()
+                        porcentaje = ((i * copias_por_hoja) + (copia + 1)) / total_cartones
+                        progress_bar.set(porcentaje)
+                        progress_label.configure(text=f"{int(porcentaje * 100)}%")
+                        loading.update_idletasks()
+                    sn_count += 1
+                if not stop_event.is_set():
+                    pdf.save()
+                    self.after(0, lambda: mostrar_popup_exito(filename))
+                else:
+                    if os.path.exists(filename):
+                        os.remove(filename)
+                    self.after(0, lambda: mostrar_popup_cancelado())
+            except Exception as e:
+                if os.path.exists(filename):
+                    os.remove(filename)
+                self.after(0, lambda: mostrar_popup_error(str(e)))
+
+        def mostrar_popup_exito(filename):
             okpop = ctk.CTkToplevel(self)
             okpop.title("¡Bingo listo!")
             okpop.geometry("350x120")
             okpop.grab_set()
             okpop.resizable(False, False)
             okpop.after(0, lambda: center_window(okpop))
-            label = ctk.CTkLabel(okpop, text=f"Bingo generado con éxito:\n{filename}",
-                                  font=("Helvetica", 16), justify="center")
+            label = ctk.CTkLabel(
+                okpop,
+                text=f"Bingo generado con éxito:\n{filename}",
+                font=("Helvetica", 16),
+                justify="center",
+            )
+            label.pack(expand=True, pady=20)
+            okbtn = ctk.CTkButton(okpop, text="Aceptar", command=okpop.destroy)
+            okbtn.pack(pady=5)
+
+        def mostrar_popup_cancelado():
+            okpop = ctk.CTkToplevel(self)
+            okpop.title("Generación cancelada")
+            okpop.geometry("350x120")
+            okpop.grab_set()
+            okpop.resizable(False, False)
+            okpop.after(0, lambda: center_window(okpop))
+            label = ctk.CTkLabel(
+                okpop,
+                text="La generación fue cancelada y el archivo eliminado.",
+                font=("Helvetica", 16),
+                justify="center",
+            )
+            label.pack(expand=True, pady=20)
+            okbtn = ctk.CTkButton(okpop, text="Aceptar", command=okpop.destroy)
+            okbtn.pack(pady=5)
+
+        def mostrar_popup_error(msg):
+            okpop = ctk.CTkToplevel(self)
+            okpop.title("Error")
+            okpop.geometry("350x120")
+            okpop.grab_set()
+            okpop.resizable(False, False)
+            okpop.after(0, lambda: center_window(okpop))
+            label = ctk.CTkLabel(
+                okpop,
+                text=f"Ocurrió un error:\n{msg}",
+                font=("Helvetica", 16),
+                justify="center",
+            )
             label.pack(expand=True, pady=20)
             okbtn = ctk.CTkButton(okpop, text="Aceptar", command=okpop.destroy)
             okbtn.pack(pady=5)
 
         loading = ctk.CTkToplevel(self)
         loading.title("Generando Bingos")
-        loading.geometry("400x150")
+        loading.geometry("400x180")
         loading.grab_set()
         loading.resizable(False, False)
         loading.after(0, lambda: center_window(loading))
         wrapper = ctk.CTkFrame(loading)
         wrapper.pack(expand=True, fill="both", padx=20, pady=20)
-        label_main = ctk.CTkLabel(wrapper, text="Generando cartones...", font=("Helvetica", 18))
+        label_main = ctk.CTkLabel(
+            wrapper, text="Generando cartones...", font=("Helvetica", 18)
+        )
         label_main.pack(pady=10)
         progress_bar = ctk.CTkProgressBar(wrapper, width=300)
         progress_bar.set(0)
         progress_bar.pack(pady=10)
         progress_label = ctk.CTkLabel(wrapper, text="0%", font=("Helvetica", 14))
         progress_label.pack()
+        cancel_btn = ctk.CTkButton(
+            wrapper,
+            text="Cancelar",
+            command=lambda: stop_event.set(),
+            fg_color="red",
+            hover_color="darkred"
+        )
+        cancel_btn.pack(pady=10)
 
-        # Iniciar generación en hilo separado
+        def update_button():
+            if not stop_event.is_set():
+                cancel_btn.configure(text="Cerrar", command=loading.destroy, fg_color="green", hover_color="darkgreen")
+
+        loading.after(100, update_button)
         threading.Thread(target=run_generation, daemon=True).start()
+
+        def show_about(self):
+            AboutWindow(self)
+
+            valid, msg = self.validate_fields()
+            if not valid:
+                ctk.CTkMessagebox(title="Error", message=msg, icon="cancel")
+                return
+            titulo = self.titulo_entry.get()
+            num_hojas = int(self.nhojas_entry.get())
+            copias_por_hoja = int(self.copias_entry.get())
+            inicio_sn = int(self.sn_entry.get())
+            filas, cols = (4, 3) if self.cuadricula_var.get() == "4x3" else (3, 3)
+            size_name = self.size_var.get()
+
+            total_cartones = num_hojas * copias_por_hoja
+            fecha = datetime.now().strftime("%Y%m%d")
+            filename = f"{titulo.replace(' ', '_')}-{fecha}.pdf"
+            stop_event = threading.Event()
+
+            def run_generation():
+                try:
+                    pdf = canvas.Canvas(filename, pagesize=(215.9 * mm, 330.2 * mm if size_name == "Oficio" else 279.4 * mm))
+                    sn_count = inicio_sn
+                    for i in range(num_hojas):
+                        if stop_event.is_set():
+                            break
+                        carton_base = generar_carton_bingo()
+                        for copia in range(copias_por_hoja):
+                            if stop_event.is_set():
+                                break
+                            sn_str = f"{sn_count}"
+                            pdf.setFont("Times-BoldItalic", 38 if filas <= 4 else 28)
+                            y_titulo = 330.2 * mm - 20 * mm / 2 if size_name == "Oficio" else 279.4 * mm - 20 * mm / 2
+                            pdf.drawCentredString(215.9 * mm / 2, y_titulo, titulo)
+                            for fila in range(filas):
+                                for col in range(cols):
+                                    x = 13 * mm + col * (min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas) + 12)
+                                    y = (330.2 * mm if size_name == "Oficio" else 279.4 * mm) - 20 * mm - fila * (min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas) + 12)
+                                    dibujar_carton(pdf, x, y, min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas), carton_base)
+                            pdf.setFont("Helvetica", 14)
+                            pdf.drawRightString(215.9 * mm - 7 * mm, 6 * mm, f"SN {sn_str}")
+                            pdf.showPage()
+                            porcentaje = ((i * copias_por_hoja) + (copia + 1)) / total_cartones
+                            progress_bar.set(porcentaje)
+                            progress_label.configure(text=f"{int(porcentaje * 100)}%")
+                            loading.update_idletasks()
+                        sn_count += 1
+                    if not stop_event.is_set():
+                        pdf.save()
+                        self.after(0, lambda: mostrar_popup_exito(filename))
+                    else:
+                        if os.path.exists(filename):
+                            os.remove(filename)
+                        self.after(0, lambda: mostrar_popup_cancelado())
+                except Exception as e:
+                    if os.path.exists(filename):
+                        os.remove(filename)
+                    self.after(0, lambda: mostrar_popup_error(str(e)))
+
+            def mostrar_popup_exito(filename):
+                okpop = ctk.CTkToplevel(self)
+                okpop.title("¡Bingo listo!")
+                okpop.geometry("350x120")
+                okpop.grab_set()
+                okpop.resizable(False, False)
+                okpop.after(0, lambda: center_window(okpop))
+                label = ctk.CTkLabel(
+                    okpop,
+                    text=f"Bingo generado con éxito:\n{filename}",
+                    font=("Helvetica", 16),
+                    justify="center",
+                )
+                label.pack(expand=True, pady=20)
+                okbtn = ctk.CTkButton(okpop, text="Aceptar", command=okpop.destroy)
+                okbtn.pack(pady=5)
+
+            def mostrar_popup_cancelado():
+                okpop = ctk.CTkToplevel(self)
+                okpop.title("Generación cancelada")
+                okpop.geometry("350x120")
+                okpop.grab_set()
+                okpop.resizable(False, False)
+                okpop.after(0, lambda: center_window(okpop))
+                label = ctk.CTkLabel(
+                    okpop,
+                    text="La generación fue cancelada y el archivo eliminado.",
+                    font=("Helvetica", 16),
+                    justify="center",
+                )
+                label.pack(expand=True, pady=20)
+                okbtn = ctk.CTkButton(okpop, text="Aceptar", command=okpop.destroy)
+                okbtn.pack(pady=5)
+
+            def mostrar_popup_error(msg):
+                okpop = ctk.CTkToplevel(self)
+                okpop.title("Error")
+                okpop.geometry("350x120")
+                okpop.grab_set()
+                okpop.resizable(False, False)
+                okpop.after(0, lambda: center_window(okpop))
+                label = ctk.CTkLabel(
+                    okpop,
+                    text=f"Ocurrió un error:\n{msg}",
+                    font=("Helvetica", 16),
+                    justify="center",
+                )
+                label.pack(expand=True, pady=20)
+                okbtn = ctk.CTkButton(okpop, text="Aceptar", command=okpop.destroy)
+                okbtn.pack(pady=5)
+
+            loading = ctk.CTkToplevel(self)
+            loading.title("Generando Bingos")
+            loading.geometry("400x180")
+            loading.grab_set()
+            loading.resizable(False, False)
+            loading.after(0, lambda: center_window(loading))
+            wrapper = ctk.CTkFrame(loading)
+            wrapper.pack(expand=True, fill="both", padx=20, pady=20)
+            label_main = ctk.CTkLabel(
+                wrapper, text="Generando cartones...", font=("Helvetica", 18)
+            )
+            label_main.pack(pady=10)
+            progress_bar = ctk.CTkProgressBar(wrapper, width=300)
+            progress_bar.set(0)
+            progress_bar.pack(pady=10)
+            progress_label = ctk.CTkLabel(wrapper, text="0%", font=("Helvetica", 14))
+            progress_label.pack()
+            cancel_btn = ctk.CTkButton(
+                wrapper,
+                text="Cancelar",
+                command=lambda: stop_event.set(),
+                fg_color="red",
+                hover_color="darkred"
+            )
+            cancel_btn.pack(pady=10)
+
+            def update_button():
+                if not stop_event.is_set():
+                    cancel_btn.configure(text="Cerrar", command=loading.destroy, fg_color="green", hover_color="darkgreen")
+
+            loading.after(100, update_button)
+            threading.Thread(target=run_generation, daemon=True).start()
+
+            def show_about(self):
+                AboutWindow(self)
+
+                valid, msg = self.validate_fields()
+                if not valid:
+                    ctk.CTkMessagebox(title="Error", message=msg, icon="cancel")
+                    return
+                titulo = self.titulo_entry.get()
+                num_hojas = int(self.nhojas_entry.get())
+                copias_por_hoja = int(self.copias_entry.get())
+                inicio_sn = int(self.sn_entry.get())
+                filas, cols = (4, 3) if self.cuadricula_var.get() == "4x3" else (3, 3)
+                size_name = self.size_var.get()
+
+                total_cartones = num_hojas * copias_por_hoja
+                fecha = datetime.now().strftime("%Y%m%d")
+                filename = f"{titulo.replace(' ', '_')}-{fecha}.pdf"
+                stop_event = threading.Event()
+
+                def run_generation():
+                    try:
+                        pdf = canvas.Canvas(filename, pagesize=(215.9 * mm, 330.2 * mm if size_name == "Oficio" else 279.4 * mm))
+                        sn_count = inicio_sn
+                        for i in range(num_hojas):
+                            if stop_event.is_set():
+                                break
+                            carton_base = generar_carton_bingo()
+                            for copia in range(copias_por_hoja):
+                                if stop_event.is_set():
+                                    break
+                                sn_str = f"{sn_count}"
+                                pdf.setFont("Times-BoldItalic", 38 if filas <= 4 else 28)
+                                y_titulo = 330.2 * mm - 20 * mm / 2 if size_name == "Oficio" else 279.4 * mm - 20 * mm / 2
+                                pdf.drawCentredString(215.9 * mm / 2, y_titulo, titulo)
+                                for fila in range(filas):
+                                    for col in range(cols):
+                                        x = 13 * mm + col * (min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas) + 12)
+                                        y = (330.2 * mm if size_name == "Oficio" else 279.4 * mm) - 20 * mm - fila * (min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas) + 12)
+                                        dibujar_carton(pdf, x, y, min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas), carton_base)
+                                pdf.setFont("Helvetica", 14)
+                                pdf.drawRightString(215.9 * mm - 7 * mm, 6 * mm, f"SN {sn_str}")
+                                pdf.showPage()
+                                porcentaje = ((i * copias_por_hoja) + (copia + 1)) / total_cartones
+                                progress_bar.set(porcentaje)
+                                progress_label.configure(text=f"{int(porcentaje * 100)}%")
+                                loading.update_idletasks()
+                            sn_count += 1
+                        if not stop_event.is_set():
+                            pdf.save()
+                            self.after(0, lambda: mostrar_popup_exito(filename))
+                        else:
+                            if os.path.exists(filename):
+                                os.remove(filename)
+                            self.after(0, lambda: mostrar_popup_cancelado())
+                    except Exception as e:
+                            if os.path.exists(filename):
+                                os.remove(filename)
+                            self.after(0, lambda: mostrar_popup_error(str(e)))
+
+                def mostrar_popup_exito(filename):
+                    okpop = ctk.CTkToplevel(self)
+                    okpop.title("¡Bingo listo!")
+                    okpop.geometry("350x120")
+                    okpop.grab_set()
+                    okpop.resizable(False, False)
+                    okpop.after(0, lambda: center_window(okpop))
+                    label = ctk.CTkLabel(
+                        okpop,
+                        text=f"Bingo generado con éxito:\n{filename}",
+                        font=("Helvetica", 16),
+                        justify="center",
+                    )
+                    label.pack(expand=True, pady=20)
+                    okbtn = ctk.CTkButton(okpop, text="Aceptar", command=okpop.destroy)
+                    okbtn.pack(pady=5)
+
+                def mostrar_popup_cancelado():
+                    okpop = ctk.CTkToplevel(self)
+                    okpop.title("Generación cancelada")
+                    okpop.geometry("350x120")
+                    okpop.grab_set()
+                    okpop.resizable(False, False)
+                    okpop.after(0, lambda: center_window(okpop))
+                    label = ctk.CTkLabel(
+                        okpop,
+                        text="La generación fue cancelada y el archivo eliminado.",
+                        font=("Helvetica", 16),
+                        justify="center",
+                    )
+                    label.pack(expand=True, pady=20)
+                    okbtn = ctk.CTkButton(okpop, text="Aceptar", command=okpop.destroy)
+                    okbtn.pack(pady=5)
+
+                def mostrar_popup_error(msg):
+                    okpop = ctk.CTkToplevel(self)
+                    okpop.title("Error")
+                    okpop.geometry("350x120")
+                    okpop.grab_set()
+                    okpop.resizable(False, False)
+                    okpop.after(0, lambda: center_window(okpop))
+                    label = ctk.CTkLabel(
+                        okpop,
+                        text=f"Ocurrió un error:\n{msg}",
+                        font=("Helvetica", 16),
+                        justify="center",
+                    )
+                    label.pack(expand=True, pady=20)
+                    okbtn = ctk.CTkButton(okpop, text="Aceptar", command=okpop.destroy)
+                    okbtn.pack(pady=5)
+
+                loading = ctk.CTkToplevel(self)
+                loading.title("Generando Bingos")
+                loading.geometry("400x180")
+                loading.grab_set()
+                loading.resizable(False, False)
+                loading.after(0, lambda: center_window(loading))
+                wrapper = ctk.CTkFrame(loading)
+                wrapper.pack(expand=True, fill="both", padx=20, pady=20)
+                label_main = ctk.CTkLabel(
+                    wrapper, text="Generando cartones...", font=("Helvetica", 18)
+                )
+                label_main.pack(pady=10)
+                progress_bar = ctk.CTkProgressBar(wrapper, width=300)
+                progress_bar.set(0)
+                progress_bar.pack(pady=10)
+                progress_label = ctk.CTkLabel(wrapper, text="0%", font=("Helvetica", 14))
+                progress_label.pack()
+                cancel_btn = ctk.CTkButton(
+                    wrapper,
+                    text="Cancelar",
+                    command=lambda: stop_event.set(),
+                    fg_color="red",
+                    hover_color="darkred"
+                )
+                cancel_btn.pack(pady=10)
+
+            threading.Thread(target=run_generation, daemon=True).start()
 
     def show_about(self):
         AboutWindow(self)
