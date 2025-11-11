@@ -272,6 +272,7 @@ class BingoModernApp(ctk.CTk):
         stop_event = threading.Event()
 
         def run_generation():
+<<<<<<< HEAD
             try:
                 pdf = canvas.Canvas(filename, pagesize=(215.9 * mm, 330.2 * mm if size_name == "Oficio" else 279.4 * mm))
                 sn_count = inicio_sn
@@ -312,6 +313,33 @@ class BingoModernApp(ctk.CTk):
                 self.after(0, lambda: mostrar_popup_error(str(e)))
 
         def mostrar_popup_exito(filename):
+=======
+            fecha = datetime.now().strftime("%Y%m%d")
+            filename = f"{titulo.replace(' ', '_')}-{fecha}.pdf"
+            pdf = canvas.Canvas(filename, pagesize=(215.9 * mm, 330.2 * mm if size_name == "Oficio" else 279.4 * mm))
+            sn_count = inicio_sn
+            for i in range(num_hojas):
+                carton_base = generar_carton_bingo()
+                for j in range(copias_por_hoja):
+                    pdf.setFont("Times-BoldItalic", 38 if filas <= 4 else 28)
+                    y_titulo = 330.2 * mm - 20 * mm / 2 if size_name == "Oficio" else 279.4 * mm - 20 * mm / 2
+                    pdf.drawCentredString(215.9 * mm / 2, y_titulo, titulo)
+                    for fila in range(filas):
+                        for col in range(cols):
+                            x = 13 * mm + col * (min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas) + 12)
+                            y = (330.2 * mm if size_name == "Oficio" else 279.4 * mm) - 20 * mm - fila * (min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas) + 12)
+                            dibujar_carton(pdf, x, y, min((215.9 * mm - 26 * mm) / cols, (330.2 * mm if size_name == "Oficio" else 279.4 * mm - 40 * mm) / filas), carton_base)
+                    pdf.setFont("Helvetica", 14)
+                    sn_str = f"{sn_count:0{len(str(num_hojas))}d}"
+                    pdf.drawRightString(215.9 * mm - 7 * mm, 6 * mm, f"SN {sn_str}")
+                    pdf.showPage()
+                    porcentaje = (i * copias_por_hoja + j + 1) / total_cartones
+                    progress_bar.set(porcentaje)
+                    progress_label.configure(text=f"{int(porcentaje * 100)}%")
+                    loading.update_idletasks()
+            pdf.save()
+            loading.destroy()
+>>>>>>> 12df0d0e2b039778bb535168ad092107133db29c
             okpop = ctk.CTkToplevel(self)
             okpop.title("¡Bingo listo!")
             okpop.geometry("350x120")
@@ -379,6 +407,7 @@ class BingoModernApp(ctk.CTk):
         progress_bar.pack(pady=10)
         progress_label = ctk.CTkLabel(wrapper, text="0%", font=("Helvetica", 14))
         progress_label.pack()
+<<<<<<< HEAD
         cancel_btn = ctk.CTkButton(
             wrapper,
             text="Cancelar",
@@ -393,6 +422,8 @@ class BingoModernApp(ctk.CTk):
                 cancel_btn.configure(text="Cerrar", command=loading.destroy, fg_color="green", hover_color="darkgreen")
 
         loading.after(100, update_button)
+=======
+>>>>>>> 12df0d0e2b039778bb535168ad092107133db29c
         threading.Thread(target=run_generation, daemon=True).start()
 
         def show_about(self):
