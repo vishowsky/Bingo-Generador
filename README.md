@@ -57,4 +57,7 @@ pyinstaller --onefile --windowed bingo.py
 Gracias por usar mi generador de bingos!  
 No dudes en abrir un issue si encuentras algún problema o tienes alguna sugerencia.
 
+## Licencia
+
+Este proyecto está licenciado bajo los términos de la [Licencia MIT](https://opensource.org/licenses/MIT).
 
