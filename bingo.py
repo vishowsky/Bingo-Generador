@@ -205,7 +205,6 @@ class BingoModernApp(ctk.CTk):
         ctk.CTkButton(frame, text="Previsualizar", command=self.preview).pack(pady=15)
         ctk.CTkButton(frame, text="Generar PDF", command=self.generar_pdf).pack(pady=7)
 
-        # Panel de previsualización
         self.preview_frame = ctk.CTkFrame(self)
         self.preview_frame.pack(padx=20, pady=20, expand=True)
         self.preview_label = ctk.CTkLabel(self.preview_frame, text="", font=("Helvetica", 16, "bold"))
@@ -213,7 +212,6 @@ class BingoModernApp(ctk.CTk):
         self.preview_panel = ctk.CTkLabel(self.preview_frame, text="")
         self.preview_panel.pack(pady=10)
 
-        # Botón Acerca de
         self.about_btn = ctk.CTkButton(self, text="Acerca de", command=self.show_about)
         self.about_btn.place(relx=0.98, rely=0.98, anchor="se")
 
@@ -259,7 +257,6 @@ class BingoModernApp(ctk.CTk):
         total_cartones = num_hojas * copias_por_hoja
 
         def run_generation():
-            # Generar PDF
             fecha = datetime.now().strftime("%Y%m%d")
             filename = f"{titulo.replace(' ', '_')}-{fecha}.pdf"
             pdf = canvas.Canvas(filename, pagesize=(215.9 * mm, 330.2 * mm if size_name == "Oficio" else 279.4 * mm))
@@ -279,7 +276,6 @@ class BingoModernApp(ctk.CTk):
                     sn_str = f"{sn_count:0{len(str(num_hojas))}d}"
                     pdf.drawRightString(215.9 * mm - 7 * mm, 6 * mm, f"SN {sn_str}")
                     pdf.showPage()
-                    # Actualizar barra de progreso
                     porcentaje = (i * copias_por_hoja + j + 1) / total_cartones
                     progress_bar.set(porcentaje)
                     progress_label.configure(text=f"{int(porcentaje * 100)}%")
@@ -313,8 +309,6 @@ class BingoModernApp(ctk.CTk):
         progress_bar.pack(pady=10)
         progress_label = ctk.CTkLabel(wrapper, text="0%", font=("Helvetica", 14))
         progress_label.pack()
-
-        # Iniciar generación en hilo separado
         threading.Thread(target=run_generation, daemon=True).start()
 
     def show_about(self):
