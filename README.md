@@ -6,7 +6,7 @@ Generador de cartones de bingo personalizados con interfaz gráfica, previsualiz
 
 <img width="700" height="420" alt="image" src="https://github.com/user-attachments/assets/1d30e001-4a3e-4fe5-ab18-dc83430def8b" />
 
-## 🌟 Características
+## Características
 
 - Generación de cartones de bingo personalizados.
 - Previsualización en tiempo real.
